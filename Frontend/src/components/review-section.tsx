@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Star, ThumbsUp, MessageSquare, User } from "./icons";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { Badge } from "./ui/badge";
+import { supabase } from "../lib/supabase"; 
 
 export interface Review {
   id: string;
@@ -13,21 +13,101 @@ export interface Review {
   comment: string;
   date: string;
   helpful: number;
-  isHelpful?: boolean;
+  isHelpful?: boolean; 
 }
 
 interface ReviewSectionProps {
   reviews: Review[];
   onAddReview: (rating: number, comment: string) => void;
-  onMarkHelpful: (reviewId: string) => void;
   destinationName: string;
 }
 
-export function ReviewSection({ reviews, onAddReview, onMarkHelpful, destinationName }: ReviewSectionProps) {
+const useAuth = () => {
+    const [user, setUser] = useState(supabase.auth.getUser());
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => setUser(data));
+    }, []);
+    return user?.user;
+};
+
+export function ReviewSection({ reviews: initialReviews, onAddReview, destinationName }: ReviewSectionProps) {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [hoveredStar, setHoveredStar] = useState(0);
   const [showAddReview, setShowAddReview] = useState(false);
+  const [userHelpful, setUserHelpful] = useState<Set<string>>(new Set()); 
+  const [localReviews, setLocalReviews] = useState(initialReviews);
+
+  const user = useAuth();
+  const userId = user?.id;
+
+  useEffect(() => {
+      setLocalReviews(initialReviews);
+  }, [initialReviews]);
+
+
+  useEffect(() => {
+    if (!userId) {
+      setUserHelpful(new Set());
+      return;
+    }
+    const fetchHelpfulStatus = async () => {
+      const reviewIds = initialReviews.map(r => r.id);
+      if (reviewIds.length === 0) return;
+
+      const { data, error } = await supabase
+        .from('review_helpful')
+        .select('review_id')
+        .eq('user_id', userId)
+        .in('review_id', reviewIds);
+
+      if (!error && data) {
+        setUserHelpful(new Set(data.map((item: any) => item.review_id)));
+      }
+    };
+    fetchHelpfulStatus();
+  }, [userId, initialReviews.length]);
+
+  const handleMarkHelpful = async (reviewId: string, isCurrentlyHelpful: boolean) => {
+    if (!userId) {
+        alert("Silakan login untuk memberikan penilaian 'Membantu'.");
+        return;
+    }
+
+    const increment = isCurrentlyHelpful ? -1 : 1;
+    const newHelpful = new Set(userHelpful);
+    if (isCurrentlyHelpful) {
+      newHelpful.delete(reviewId);
+    } else {
+      newHelpful.add(reviewId);
+    }
+    setUserHelpful(newHelpful);
+    setLocalReviews(prev => prev.map(review => {
+        if (review.id === reviewId) {
+            return {
+                ...review,
+                helpful: Math.max(0, review.helpful + increment) 
+            }
+        }
+        return review;
+    }));
+
+    try {
+      if (isCurrentlyHelpful) {
+        await supabase.from('review_helpful').delete().eq('user_id', userId).eq('review_id', reviewId);
+        await supabase.rpc('update_review_helpful', { rev_id: reviewId, increment: -1 });
+      } else {
+        await supabase.from('review_helpful').insert({ user_id: userId, review_id: reviewId });
+        await supabase.rpc('update_review_helpful', { rev_id: reviewId, increment: 1 });
+      }
+    } catch (error) {
+      console.error("Gagal update helpful status:", error);
+
+      setUserHelpful(userHelpful); 
+      setLocalReviews(initialReviews); 
+      alert("Gagal menyimpan status helpful. Coba lagi.");
+    }
+  };
 
   const handleSubmitReview = () => {
     if (newRating > 0 && newComment.trim()) {
@@ -38,9 +118,17 @@ export function ReviewSection({ reviews, onAddReview, onMarkHelpful, destination
     }
   };
 
-  const averageRating = reviews.length > 0 
-    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+  const averageRating = localReviews.length > 0 
+    ? localReviews.reduce((sum, review) => sum + review.rating, 0) / localReviews.length 
     : 0;
+    
+  const reviewsWithStatus = useMemo(() => {
+    return localReviews.map(review => ({
+      ...review,
+      isHelpful: userHelpful.has(review.id)
+    }));
+  }, [localReviews, userHelpful]);
+
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -59,13 +147,13 @@ export function ReviewSection({ reviews, onAddReview, onMarkHelpful, destination
                 <Star className="h-4 w-4 sm:h-5 sm:w-5 fill-yellow-400 text-yellow-400" />
                 <span className="text-lg sm:text-xl">{averageRating.toFixed(1)}</span>
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground">{reviews.length} ulasan</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">{reviewsWithStatus.length} ulasan</p>
             </div>
             
             <div className="flex-1 space-y-1">
               {[5, 4, 3, 2, 1].map((rating) => {
-                const count = reviews.filter(r => r.rating === rating).length;
-                const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                const count = reviewsWithStatus.filter(r => r.rating === rating).length;
+                const percentage = reviewsWithStatus.length > 0 ? (count / reviewsWithStatus.length) * 100 : 0;
                 
                 return (
                   <div key={rating} className="flex items-center gap-2 text-xs sm:text-sm">
@@ -160,7 +248,7 @@ export function ReviewSection({ reviews, onAddReview, onMarkHelpful, destination
 
       {/* Reviews List */}
       <div className="space-y-3 sm:space-y-4">
-        {reviews.map((review) => (
+        {reviewsWithStatus.map((review) => (
           <Card key={review.id}>
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-start gap-2 sm:gap-3">
@@ -200,10 +288,10 @@ export function ReviewSection({ reviews, onAddReview, onMarkHelpful, destination
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onMarkHelpful(review.id)}
-                      className={`h-7 text-xs ${review.isHelpful ? "text-blue-600" : ""}`}
+                      onClick={() => handleMarkHelpful(review.id, review.isHelpful!)}
+                      className={`h-7 text-xs ${review.isHelpful ? "text-blue-600 font-semibold" : "text-muted-foreground hover:text-blue-600"}`}
                     >
-                      <ThumbsUp className="h-3 w-3 mr-1" />
+                      <ThumbsUp className={`h-3 w-3 mr-1 ${review.isHelpful ? "fill-blue-600" : ""}`} />
                       <span className="hidden xs:inline">Membantu</span> ({review.helpful})
                     </Button>
                   </div>
@@ -213,7 +301,7 @@ export function ReviewSection({ reviews, onAddReview, onMarkHelpful, destination
           </Card>
         ))}
         
-        {reviews.length === 0 && (
+        {reviewsWithStatus.length === 0 && (
           <Card>
             <CardContent className="p-6 sm:p-8 text-center">
               <MessageSquare className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
