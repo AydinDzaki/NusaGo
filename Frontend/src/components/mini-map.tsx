@@ -12,17 +12,13 @@ interface MiniMapProps {
 export function MiniMap({ destination, onViewFullMap, height = "h-32" }: MiniMapProps) {
   const [isHovered, setIsHovered] = useState(false);
 
-  // Generate a realistic coordinate-based position for the pin
   const getPinPosition = () => {
-    // Use coordinates to create a somewhat realistic positioning
     const lat = destination.coordinates.lat;
     const lng = destination.coordinates.lng;
     
-    // Convert coordinates to percentage positions (simplified mapping)
     const x = ((lng + 180) / 360) * 100;
     const y = ((90 - lat) / 180) * 100;
     
-    // Constrain to map boundaries with some padding
     const constrainedX = Math.max(10, Math.min(90, x));
     const constrainedY = Math.max(15, Math.min(85, y));
     

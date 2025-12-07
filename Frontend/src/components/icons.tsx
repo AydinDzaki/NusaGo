@@ -1,4 +1,3 @@
-// Simple inline SVG icons to replace lucide-react
 export const MapPin = ({ className = "", ...props }) => (
   <svg
     className={className}

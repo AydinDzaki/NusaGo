@@ -5,7 +5,7 @@ import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
 import { ReviewSection, Review } from "./review-section";
 import { Destination } from "./destination-card";
-import { MiniMap } from "./mini-map";
+import { RealMap } from "./real-map"; 
 
 interface DestinationDetailProps {
   destination: Destination;
@@ -15,6 +15,7 @@ interface DestinationDetailProps {
   onAddReview: (rating: number, comment: string) => void;
   onMarkHelpful: (reviewId: string) => void;
   isLiked: boolean;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 export function DestinationDetail({
@@ -24,8 +25,23 @@ export function DestinationDetail({
   onLike,
   onAddReview,
   onMarkHelpful,
-  isLiked
+  isLiked,
+  userLocation
 }: DestinationDetailProps) {
+  
+  // === DEBUGGING Stuff ===
+  console.log("=== DEBUG DESTINATION DETAIL ===");
+  console.log("Nama Destinasi:", destination.name);
+  console.log("Data Koordinat:", destination.coordinates);
+  console.log("Data Lokasi User:", userLocation);
+  // === DEBUGGING stuff ===
+
+  const hasValidCoordinates = destination.coordinates && 
+                              typeof destination.coordinates.lat === 'number' && 
+                              typeof destination.coordinates.lng === 'number';
+
+  console.log("Apakah Koordinat Valid?", hasValidCoordinates);
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -52,16 +68,13 @@ export function DestinationDetail({
         </div>
       </div>
 
-      {/* Hero Image */}
       <Card className="overflow-hidden">
         <div className="relative">
-          {/* PERBAIKAN: Ganti ImageWithFallback dengan <img> */}
           <img
             src={destination.image}
             alt={destination.name}
             className="w-full h-48 sm:h-64 md:h-96 object-cover"
           />
-          {/* Akhir Perbaikan */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 text-white">
             <Badge 
@@ -84,7 +97,7 @@ export function DestinationDetail({
       </Card>
 
       {/* Quick Info */}
-      <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card>
           <CardContent className="p-3 sm:p-4 text-center">
             <Star className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400 mx-auto mb-1 sm:mb-2" />
@@ -106,14 +119,14 @@ export function DestinationDetail({
             {destination.type === "event" ? (
               <>
                 <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mx-auto mb-1 sm:mb-2" />
-                <p className="text-xs sm:text-sm line-clamp-1">{destination.date ? new Date(destination.date).toLocaleDateString('id-ID') : "Akan diumumkan"}</p>
+                <p className="text-xs sm:text-sm line-clamp-1">{destination.date ? new Date(destination.date).toLocaleDateString('id-ID') : "TBA"}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">tanggal acara</p>
               </>
             ) : (
               <>
                 <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mx-auto mb-1 sm:mb-2" />
-                <p className="text-xs sm:text-sm">Sepanjang Tahun</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">tersedia</p>
+                <p className="text-xs sm:text-sm">Buka</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">setiap hari</p>
               </>
             )}
           </CardContent>
@@ -141,30 +154,6 @@ export function DestinationDetail({
               ))}
             </div>
           </div>
-          
-          <Separator />
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-            <div>
-              <h4 className="mb-2 text-sm sm:text-base">Detail Lokasi</h4>
-              <div className="space-y-1 text-muted-foreground">
-                <p>📍 {destination.location}</p>
-                {/* Perbaikan Encoding */}
-                <p className="break-all">🌐 {destination.coordinates.lat}, {destination.coordinates.lng}</p>
-              </div>
-            </div>
-            
-            {destination.type === "event" && destination.date && (
-              <div>
-                <h4 className="mb-2 text-sm sm:text-base">Informasi Acara</h4>
-                <div className="space-y-1 text-muted-foreground">
-                  {/* Perbaikan Encoding */}
-                  <p>📅 {new Date(destination.date).toLocaleDateString('id-ID')}</p>
-                  <p>⏰ {new Date(destination.date).toLocaleTimeString('id-ID')}</p>
-                </div>
-              </div>
-            )}
-          </div>
         </CardContent>
       </Card>
 
@@ -176,16 +165,28 @@ export function DestinationDetail({
             Peta Lokasi
           </h2>
           <p className="text-sm text-muted-foreground">
-            Temukan {destination.name} di lokasi yang ditampilkan di bawah
+            {userLocation 
+              ? "Posisi destinasi (Marker Biru) relatif terhadap lokasi Anda (Marker Merah)." 
+              : "Menampilkan lokasi destinasi di peta."}
           </p>
-          <MiniMap 
-            destination={destination}
-            height="h-64 sm:h-80"
-          />
+          
+          {hasValidCoordinates ? (
+            <RealMap 
+              destinations={[destination]} 
+              userLocation={userLocation || null} 
+              customCenter={destination.coordinates} 
+            />
+          ) : (
+            <div className="h-[200px] w-full bg-muted/20 rounded-lg flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed">
+              <MapPin className="h-8 w-8 mb-2 opacity-50" />
+              <p>Maaf, data koordinat peta untuk lokasi ini belum tersedia.</p>
+              <p className="text-xs mt-1">(Lat/Lng Kosong atau Invalid)</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Reviews Section */}
+      {/* Reviews */}
       <ReviewSection
         reviews={reviews}
         onAddReview={onAddReview}

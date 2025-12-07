@@ -41,7 +41,7 @@ export function ForgotPassword({ onBack, onResetPassword, isLoading = false, err
           </p>
         </div>
 
-        {/* Forgot Password Card */}
+        {/* Forgot Password */}
         <Card className="shadow-lg border-0">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-xl">Lupa Password</CardTitle>

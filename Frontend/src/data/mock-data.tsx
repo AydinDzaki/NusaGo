@@ -1,21 +1,19 @@
 import { Destination } from "../components/destination-card";
 import { Review } from "../components/review-section";
 
-// DATA DUMMY VERSI INDONESIA
-// Koordinat disesuaikan agar fitur "Terdekat" bisa didemokan di Indonesia
 export const mockDestinations: Destination[] = [
   {
     id: "1",
     name: "Monumen Nasional (Monas)",
     location: "Jakarta Pusat, DKI Jakarta",
-    image: "https://images.unsplash.com/photo-1555899434-94d1368d7vd6?q=80&w=1000&auto=format&fit=crop", // Gambar Monas
+    image: "https://images.unsplash.com/photo-1555899434-94d1368d7vd6?q=80&w=1000&auto=format&fit=crop", 
     type: "destination",
     rating: 4.7,
     reviews: 1240,
     likes: 5432,
     description: "Ikon kebanggaan Indonesia yang terletak di pusat kota Jakarta. Nikmati pemandangan kota dari puncak tugu dan pelajari sejarah di museum nasional.",
     tags: ["Sejarah", "Budaya", "Keluarga", "Fotografi"],
-    coordinates: { lat: -6.175392, lng: 106.827153 } // Koordinat Monas
+    coordinates: { lat: -6.175392, lng: 106.827153 } 
   },
   {
     id: "2",
@@ -29,14 +27,14 @@ export const mockDestinations: Destination[] = [
     price: "Rp 250.000",
     description: "Taman hiburan tematik terbesar di Jakarta dengan berbagai wahana seru yang memacu adrenalin. Cocok untuk liburan keluarga dan teman.",
     tags: ["Hiburan", "Wahana", "Keluarga", "Seru"],
-    coordinates: { lat: -6.125312, lng: 106.833543 } // Koordinat Dufan
+    coordinates: { lat: -6.125312, lng: 106.833543 }
   },
   {
     id: "3",
     name: "Museum Macan",
     location: "Kebon Jeruk, Jakarta Barat",
     image: "https://images.unsplash.com/photo-1545959967-73d706536b33?q=80&w=1000",
-    type: "event", // Tipe Event
+    type: "event",
     rating: 4.8,
     reviews: 1567,
     likes: 4890,
@@ -44,7 +42,7 @@ export const mockDestinations: Destination[] = [
     date: "2025-06-20T10:00:00Z",
     description: "Museum seni modern dan kontemporer yang menampilkan karya seniman lokal dan internasional. Pameran seni rupa yang instagramable.",
     tags: ["Seni", "Museum", "Indoor", "Instagramable"],
-    coordinates: { lat: -6.190696, lng: 106.766347 } // Koordinat Museum Macan
+    coordinates: { lat: -6.190696, lng: 106.766347 }
   },
   {
     id: "4",
@@ -99,7 +97,6 @@ export const mockReviews: { [destinationId: string]: Review[] } = {
       isHelpful: false
     }
   ]
-  // ... (bisa tambahkan review lain jika mau)
 };
 
 export const availableTags = [

@@ -22,7 +22,6 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
   const [isLoginMode, setIsLoginMode] = useState(initialMode === "login");
   const [showPassword, setShowPassword] = useState(false);
   
-  // State Internal untuk Loading & Error dari Supabase
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -48,7 +47,6 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
         
         if (error) throw error;
         
-        // Jika sukses, App.tsx akan mendeteksi session change secara otomatis
       } else {
         // === SIGN UP ===
         if (formData.password !== formData.confirmPassword) {
@@ -60,14 +58,13 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
           password: formData.password,
           options: {
             data: {
-              name: formData.name, // Simpan nama di metadata user
+              name: formData.name, 
             },
           },
         });
 
         if (error) throw error;
         
-        // Berikan feedback jika perlu konfirmasi email
         alert("Pendaftaran berhasil! Silakan cek email jika perlu verifikasi, atau login.");
       }
     } catch (err: any) {

@@ -58,9 +58,7 @@ export function MapView({ destinations, selectedDestination, onDestinationSelect
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* Google Maps-style Container */}
       <div className="relative bg-white rounded-lg border shadow-lg overflow-hidden min-h-[400px] sm:min-h-[500px]">
-        {/* Map Search Bar */}
         <div className="absolute top-3 left-3 right-3 z-30">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -75,7 +73,6 @@ export function MapView({ destinations, selectedDestination, onDestinationSelect
 
         {/* Map Controls */}
         <div className="absolute top-3 right-3 z-30 flex flex-col gap-2">
-          {/* Map Type Selector */}
           <Select value={mapType} onValueChange={setMapType}>
             <SelectTrigger className="w-32 h-9 bg-white shadow-md border-0 text-xs">
               <Layers className="h-3 w-3 mr-1" />
@@ -120,9 +117,7 @@ export function MapView({ destinations, selectedDestination, onDestinationSelect
           </Button>
         </div>
 
-        {/* Mock Google Maps Interface */}
         <div className={`map-container relative w-full h-full ${getMapBackground()} overflow-hidden`}>
-          {/* Detailed Mock Map */}
           <div className="absolute inset-0">
             {mapType === "roadmap" && (
               <>
@@ -399,7 +394,6 @@ export function MapView({ destinations, selectedDestination, onDestinationSelect
           </div>
         </div>
 
-        {/* Google Maps Attribution */}
         <div className="absolute bottom-0 left-0 right-0 bg-white bg-opacity-90 text-xs text-gray-600 p-2 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <span>© 2025 NusaGo Maps</span>
@@ -422,7 +416,6 @@ export function MapView({ destinations, selectedDestination, onDestinationSelect
         </div>
       </div>
 
-      {/* Selected destination info card (mobile-friendly) */}
       {selectedDestination && !infoWindow && (
         <Card>
           <CardContent className="p-3 sm:p-4">

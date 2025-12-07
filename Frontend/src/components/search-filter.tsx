@@ -10,12 +10,12 @@ interface SearchFilterProps {
   onSearchChange: (value: string) => void;
   selectedType: string;
   onTypeChange: (value: string) => void;
-  selectedLocation: string; // Ini sekarang menyimpan nama Pulau
+  selectedLocation: string; 
   onLocationChange: (value: string) => void;
   selectedTags: string[];
   onTagToggle: (tag: string) => void;
   availableTags: string[];
-  availableLocations: string[]; // Ini sekarang list Pulau
+  availableLocations: string[]; 
 }
 
 export function SearchFilter({
@@ -94,7 +94,6 @@ export function SearchFilter({
                 </div>
                 
                 <div className="space-y-2">
-                  {/* LABEL DIGANTI JADI PULAU */}
                   <label className="text-sm font-medium">Pulau / Wilayah</label>
                   <Select value={selectedLocation} onValueChange={onLocationChange}>
                     <SelectTrigger className="h-12 sm:h-10">

@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { Navigation } from './icons';
 import L from 'leaflet';
 
-// Gunakan CDN Icon agar tidak error saat build di Vite
 const defaultIcon = L.icon({
     iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
     iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -19,69 +18,70 @@ interface RealMapProps {
     destinations: any[];
     userLocation: { lat: number, lng: number } | null;
     onViewDetail?: (id: string) => void;
+    customCenter?: { lat: number; lng: number }; 
 }
 
-export function RealMap({ destinations, userLocation, onViewDetail }: RealMapProps) {
-    // 1. VALIDASI LOKASI USER
-    // Pastikan userLocation ada DAN isinya benar-benar angka
+export function RealMap({ destinations, userLocation, onViewDetail, customCenter }: RealMapProps) {
+    // VALIDASI LOKASI USER
     const isUserValid = userLocation && 
                         typeof userLocation.lat === 'number' && 
                         typeof userLocation.lng === 'number';
 
-    // Default ke Monas (Jakarta) kalau user invalid, supaya peta tidak crash
-    const centerPosition: [number, number] = isUserValid 
-        ? [userLocation!.lat, userLocation!.lng] 
-        : [-6.1754, 106.8272]; 
+    // VALIDASI CUSTOM CENTER
+    const isCustomCenterValid = customCenter && 
+                                typeof customCenter.lat === 'number' && 
+                                typeof customCenter.lng === 'number';
+
+    // TENTUKAN PUSAT PETA (CENTER)
+    const defaultCenter: [number, number] = [-6.1754, 106.827153];
+    
+    let centerPosition: [number, number] = defaultCenter;
+
+    if (isCustomCenterValid) {
+        centerPosition = [customCenter!.lat, customCenter!.lng];
+    } else if (isUserValid) {
+        centerPosition = [userLocation!.lat, userLocation!.lng];
+    }
 
     return (
-        <div className="h-[400px] w-full rounded-lg overflow-hidden shadow-lg border relative z-0 isolate">
+        <div 
+            className="w-full rounded-lg overflow-hidden shadow-lg border relative z-0 isolate"
+            style={{ height: '400px', minHeight: '400px' }} 
+        >
             <MapContainer 
-                // Key unik penting untuk reset map saat lokasi berubah
-                key={isUserValid ? `user-${centerPosition[0]}` : 'default-map'}
+                key={`map-${centerPosition[0]}-${centerPosition[1]}`}
                 center={centerPosition} 
                 zoom={13} 
                 scrollWheelZoom={false} 
                 className="h-full w-full z-0"
+                style={{ height: '100%', width: '100%' }} // Pastikan container peta memenuhi parent
             >
                 <TileLayer
                     attribution='&copy; OpenStreetMap contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                {/* Marker User (Hanya render jika valid) */}
                 {isUserValid && (
-                    <Marker position={centerPosition} icon={defaultIcon}>
+                    <Marker position={[userLocation!.lat, userLocation!.lng]} icon={defaultIcon}>
                         <Popup><div className="font-bold text-sm">📍 Lokasi Kamu</div></Popup>
                     </Marker>
                 )}
 
-                {/* Marker Destinasi (Looping dengan Validasi Ketat) */}
                 {Array.isArray(destinations) && destinations.map((dest) => {
-                    // Cek berbagai kemungkinan struktur data 
-                    // (Handle beda struktur antara Supabase flat vs Mock Data nested)
+                    if (!dest) return null;
+
                     let lat = dest.lat;
                     let lng = dest.lng;
 
-                    // Fallback jika struktur data nested di properti 'coordinates'
-                    if (typeof lat !== 'number' && dest.coordinates) {
-                        lat = dest.coordinates.lat;
-                    }
-                    if (typeof lng !== 'number' && dest.coordinates) {
-                        lng = dest.coordinates.lng;
+                    if (dest.coordinates) {
+                        if (lat === undefined || lat === null) lat = dest.coordinates.lat;
+                        if (lng === undefined || lng === null) lng = dest.coordinates.lng;
                     }
 
-                    // PENGECEKAN FINAL: Jika masih bukan angka, JANGAN RENDER (Return null)
-                    // Baris inilah yang mencegah error "Invalid LatLng" penyebab layar putih
-                    if (typeof lat !== 'number' || typeof lng !== 'number') {
-                        return null; 
-                    }
+                    if (typeof lat !== 'number' || typeof lng !== 'number') return null; 
 
                     return (
-                        <Marker 
-                            key={dest.id} 
-                            position={[lat, lng]}
-                            icon={defaultIcon}
-                        >
+                        <Marker key={dest.id} position={[lat, lng]} icon={defaultIcon}>
                             <Popup>
                                 <div className="min-w-[150px]">
                                     <div className="font-bold text-sm mb-1">{dest.name}</div>
@@ -98,11 +98,7 @@ export function RealMap({ destinations, userLocation, onViewDetail }: RealMapPro
                                         )}
                                     </div>
                                     {onViewDetail && (
-                                        <Button 
-                                            size="sm" 
-                                            className="w-full mt-2 h-7 text-xs"
-                                            onClick={() => onViewDetail(dest.id)}
-                                        >
+                                        <Button size="sm" className="w-full mt-2 h-7 text-xs" onClick={() => onViewDetail(dest.id)}>
                                             Lihat Detail
                                         </Button>
                                     )}
@@ -116,7 +112,7 @@ export function RealMap({ destinations, userLocation, onViewDetail }: RealMapPro
             <div className="absolute bottom-4 left-4 z-[400] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow border text-xs">
                 <div className="flex items-center gap-2">
                     <Navigation className="h-3 w-3 text-blue-600" />
-                    <span>Peta Interaktif</span>
+                    <span>Peta Lokasi</span>
                 </div>
             </div>
         </div>

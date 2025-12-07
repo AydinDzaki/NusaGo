@@ -18,7 +18,7 @@ export interface Destination {
   description: string;
   tags: string[];
   coordinates: { lat: number; lng: number };
-  island?: string; // PROPERTI BARU (Optional biar ga error sama mock data lama)
+  island?: string; 
 }
 
 interface DestinationCardProps {
@@ -47,7 +47,7 @@ export function DestinationCard({ destination, onLike, onViewDetails, isLiked, d
           {destination.type === "event" ? "Acara" : "Destinasi"}
         </Badge>
 
-        {/* TAMPILKAN PULAU JIKA ADA (Baru) */}
+        {/* TAMPILKAN PULAU JIKA ADA */}
         {destination.island && (
            <Badge className="absolute top-2 left-20 text-xs bg-black/50 hover:bg-black/70 backdrop-blur-sm border-none text-white">
              🏝️ {destination.island}

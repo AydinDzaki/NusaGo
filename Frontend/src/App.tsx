@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./lib/supabase"; 
+
 import { MapPin, Search, Heart, Home, LogOut, User, Navigation, Target, Settings, ChevronDown, LogIn, UserPlus } from "./components/icons";
+
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 import { DestinationCard, Destination } from "./components/destination-card";
@@ -11,7 +13,7 @@ import { ForgotPassword } from "./components/forgot-password";
 import { Settings as SettingsPage } from "./components/settings";
 import { mockDestinations, mockReviews, availableTags } from "./data/mock-data"; 
 import { Review } from "./components/review-section";
-import { RealMap } from "./components/real-map"; 
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,21 +46,17 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   
-  // Data State
   const [allDestinations, setAllDestinations] = useState<Destination[]>(mockDestinations);
   const [nearbyDestinations, setNearbyDestinations] = useState<Destination[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // UI State
   const [selectedDestinationId, setSelectedDestinationId] = useState<string>("");
   const [likedDestinations, setLikedDestinations] = useState<Set<string>>(new Set());
   const [reviews, setReviews] = useState<{ [key: string]: Review[] }>(mockReviews);
   
-  // Geolocation State
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationPermission, setLocationPermission] = useState<"prompt" | "granted" | "denied">("prompt");
 
-  // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedIsland, setSelectedIsland] = useState("all"); 
@@ -104,7 +102,7 @@ export default function App() {
     setLikedDestinations(new Set()); 
   };
 
-  // FETCH DATA DESTINASI
+  // FETCH DATA
   useEffect(() => {
     const fetchDestinations = async () => {
       setIsLoading(true);
@@ -145,55 +143,27 @@ export default function App() {
   // FETCH LIKES
   useEffect(() => {
     if (!currentUser) return;
-
     const fetchLikes = async () => {
-      const { data, error } = await supabase
-        .from('likes')
-        .select('destination_id')
-        .eq('user_id', currentUser.id);
-
+      const { data, error } = await supabase.from('likes').select('destination_id').eq('user_id', currentUser.id);
       if (!error && data) {
-        const likedSet = new Set(data.map((item: any) => item.destination_id));
-        setLikedDestinations(likedSet);
+        setLikedDestinations(new Set(data.map((item: any) => item.destination_id)));
       }
     };
-
     fetchLikes();
   }, [currentUser]);
 
   // FETCH REVIEWS
   useEffect(() => {
     if (!selectedDestinationId) return;
-
     const fetchReviews = async () => {
-      // Ambil review + nama user dari table profiles
-      const { data, error } = await supabase
-        .from('reviews')
-        .select(`
-          id, rating, comment, created_at,
-          profiles ( name ) 
-        `)
-        .eq('destination_id', selectedDestinationId)
-        .order('created_at', { ascending: false });
-
+      const { data, error } = await supabase.from('reviews').select(`id, rating, comment, created_at, profiles ( name )`).eq('destination_id', selectedDestinationId).order('created_at', { ascending: false });
       if (!error && data) {
         const formattedReviews: Review[] = data.map((item: any) => ({
-          id: item.id,
-          userName: item.profiles?.name || "Pengguna",
-          rating: item.rating,
-          comment: item.comment,
-          date: item.created_at,
-          helpful: 0, 
-          isHelpful: false
+          id: item.id, userName: item.profiles?.name || "Pengguna", rating: item.rating, comment: item.comment, date: item.created_at, helpful: 0, isHelpful: false
         }));
-        
-        setReviews(prev => ({
-          ...prev,
-          [selectedDestinationId]: formattedReviews
-        }));
+        setReviews(prev => ({ ...prev, [selectedDestinationId]: formattedReviews }));
       }
     };
-
     fetchReviews();
   }, [selectedDestinationId]);
 
@@ -231,7 +201,7 @@ export default function App() {
     return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
   }, [isAuthenticated, allDestinations]); 
 
-  // FILTERING LOGIC
+  // FILTER
   const filteredDestinations = allDestinations.filter((destination) => {
     const matchesSearch = destination.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          destination.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -245,99 +215,38 @@ export default function App() {
   const isSearching = searchTerm !== "" || selectedType !== "all" || 
                      selectedIsland !== "all" || selectedTags.length > 0;
 
-
-  // HANDLE LIKE
+  // HANDLERS
   const handleLike = async (destinationId: string) => {
-    if (!currentUser) {
-      alert("Silakan login untuk menyimpan favorit!");
-      setCurrentView("login");
-      return;
-    }
-
+    if (!currentUser) { alert("Silakan login untuk menyimpan favorit!"); setCurrentView("login"); return; }
     const isLiked = likedDestinations.has(destinationId);
-    
-    // Optimistic Update
     const newLiked = new Set(likedDestinations);
-    if (isLiked) newLiked.delete(destinationId);
-    else newLiked.add(destinationId);
+    if (isLiked) newLiked.delete(destinationId); else newLiked.add(destinationId);
     setLikedDestinations(newLiked);
-
     try {
-      // Update Database di Background
-      if (isLiked) {
-        // Hapus Like
-        await supabase.from('likes')
-          .delete()
-          .eq('user_id', currentUser.id)
-          .eq('destination_id', destinationId);
-      } else {
-        // Tambah Like
-        await supabase.from('likes')
-          .insert({ user_id: currentUser.id, destination_id: destinationId });
-      }
-    } catch (error) {
-      console.error("Gagal update like:", error);
-      // Revert UI jika gagal
-      setLikedDestinations(likedDestinations); 
-    }
+      if (isLiked) { await supabase.from('likes').delete().eq('user_id', currentUser.id).eq('destination_id', destinationId); } 
+      else { await supabase.from('likes').insert({ user_id: currentUser.id, destination_id: destinationId }); }
+    } catch (error) { console.error("Gagal update like:", error); setLikedDestinations(likedDestinations); }
   };
 
-  const handleViewDetails = (id: string) => {
-    setSelectedDestinationId(id);
-    setCurrentView("destination-detail");
-  };
+  const handleViewDetails = (id: string) => { setSelectedDestinationId(id); setCurrentView("destination-detail"); };
 
-  // HANDLE ADD REVIEW
   const handleAddReview = async (rating: number, comment: string) => {
-    if (!currentUser) {
-      alert("Silakan login untuk memberi ulasan!");
-      return;
-    }
-
+    if (!currentUser) { alert("Silakan login untuk memberi ulasan!"); return; }
     try {
-      // Insert ke Database
-      const { data, error } = await supabase
-        .from('reviews')
-        .insert({
-          user_id: currentUser.id,
-          destination_id: selectedDestinationId,
-          rating: rating,
-          comment: comment
-        })
-        .select()
-        .single();
-
+      const { data, error } = await supabase.from('reviews').insert({ user_id: currentUser.id, destination_id: selectedDestinationId, rating: rating, comment: comment }).select().single();
       if (error) throw error;
-
-      // Update State Lokal
-      const newReview: Review = {
-        id: data.id,
-        userName: currentUser.name,
-        rating: rating,
-        comment: comment,
-        date: data.created_at,
-        helpful: 0,
-        isHelpful: false
-      };
-
-      setReviews(prev => ({
-        ...prev,
-        [selectedDestinationId]: [newReview, ...(prev[selectedDestinationId] || [])]
-      }));
-
-    } catch (error) {
-      console.error("Gagal kirim review:", error);
-      alert("Gagal mengirim ulasan. Coba lagi nanti.");
-    }
+      const newReview: Review = { id: data.id, userName: currentUser.name, rating: rating, comment: comment, date: data.created_at, helpful: 0, isHelpful: false };
+      setReviews(prev => ({ ...prev, [selectedDestinationId]: [newReview, ...(prev[selectedDestinationId] || [])] }));
+    } catch (error) { console.error("Gagal kirim review:", error); alert("Gagal mengirim ulasan."); }
   };
 
-  const handleMarkHelpful = (id: string) => { /* Logic Helpful (Opsional) */ };
+  const handleMarkHelpful = (id: string) => { /* Logic Helpful */ };
   const handleTagToggle = (tag: string) => { setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]); };
   const handleBackToHome = () => { setCurrentView("home"); setSelectedDestinationId(""); };
   const handleFavoritesClick = () => { setCurrentView("favorites"); };
   const selectedDestination = allDestinations.find(d => d.id === selectedDestinationId);
 
-  // Render Views
+  // Views
   if (currentView === "forgot-password") return <ForgotPassword onBack={() => setCurrentView("login")} onResetPassword={() => {}} />;
   if (currentView === "login" || currentView === "signup") return <Auth initialMode={currentView} onLogin={() => {}} onSignup={() => {}} onForgotPassword={() => setCurrentView("forgot-password")} onBack={() => setCurrentView("home")} />;
   
@@ -353,6 +262,7 @@ export default function App() {
             onAddReview={handleAddReview} 
             onMarkHelpful={handleMarkHelpful} 
             isLiked={likedDestinations.has(selectedDestinationId)} 
+            userLocation={userLocation}
           />
         </div>
       </div>
@@ -396,7 +306,7 @@ export default function App() {
             {!isSearching && isAuthenticated && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center"><h2 className="text-xl font-semibold flex gap-2"><Target className="text-primary" /> Rekomendasi Sekitarmu</h2><Badge variant="outline"><Navigation className="h-3 w-3 mr-1" /> Terdekat</Badge></div>
-                <RealMap destinations={nearbyDestinations} userLocation={userLocation} onViewDetail={handleViewDetails} />
+                
                 {nearbyDestinations.length > 0 ? <div className="overflow-x-auto pb-4 -mx-3 px-3 scrollbar-hide"><div className="flex gap-4">{nearbyDestinations.map(dest => <div key={dest.id} className="w-[280px] flex-shrink-0"><DestinationCard destination={dest} onLike={handleLike} onViewDetails={handleViewDetails} isLiked={likedDestinations.has(dest.id)} distance={dest.distance} featured={true} /></div>)}</div></div> : <div className="text-center py-4 bg-muted/20 rounded-lg"><p className="text-sm text-muted-foreground">Belum ada destinasi di database yang dekat dengan lokasimu.</p></div>}
               </div>
             )}
