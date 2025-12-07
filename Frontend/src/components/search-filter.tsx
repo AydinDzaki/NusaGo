@@ -10,12 +10,12 @@ interface SearchFilterProps {
   onSearchChange: (value: string) => void;
   selectedType: string;
   onTypeChange: (value: string) => void;
-  selectedLocation: string;
+  selectedLocation: string; // Ini sekarang menyimpan nama Pulau
   onLocationChange: (value: string) => void;
   selectedTags: string[];
   onTagToggle: (tag: string) => void;
   availableTags: string[];
-  availableLocations: string[];
+  availableLocations: string[]; // Ini sekarang list Pulau
 }
 
 export function SearchFilter({
@@ -41,7 +41,6 @@ export function SearchFilter({
 
   return (
     <div className="bg-card rounded-lg border">
-      {/* Always visible search bar */}
       <div className="p-3 sm:p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -54,7 +53,6 @@ export function SearchFilter({
         </div>
       </div>
 
-      {/* Collapsible filters */}
       <div>
         <Button 
           variant="ghost" 
@@ -80,10 +78,9 @@ export function SearchFilter({
         {isExpanded && (
           <div className="border-t">
             <div className="p-3 sm:p-4 space-y-4">
-              {/* Type and Location filters */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm">Jenis</label>
+                  <label className="text-sm font-medium">Jenis</label>
                   <Select value={selectedType} onValueChange={onTypeChange}>
                     <SelectTrigger className="h-12 sm:h-10">
                       <SelectValue placeholder="Semua Jenis" />
@@ -97,18 +94,19 @@ export function SearchFilter({
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm">Lokasi</label>
+                  {/* LABEL DIGANTI JADI PULAU */}
+                  <label className="text-sm font-medium">Pulau / Wilayah</label>
                   <Select value={selectedLocation} onValueChange={onLocationChange}>
                     <SelectTrigger className="h-12 sm:h-10">
-                      <SelectValue placeholder="Semua Lokasi" />
+                      <SelectValue placeholder="Semua Wilayah" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Semua Lokasi</SelectItem>
-                      {availableLocations.map((location) => (
-                        <SelectItem key={location} value={location}>
+                      <SelectItem value="all">Semua Wilayah</SelectItem>
+                      {availableLocations.map((island) => (
+                        <SelectItem key={island} value={island}>
                           <div className="flex items-center gap-2">
                             <MapPin className="h-3 w-3" />
-                            <span className="truncate">{location}</span>
+                            <span className="truncate">{island}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -117,9 +115,8 @@ export function SearchFilter({
                 </div>
               </div>
               
-              {/* Tags */}
               <div className="space-y-2">
-                <label className="text-sm">Tag</label>
+                <label className="text-sm font-medium">Tag</label>
                 <div className="flex flex-wrap gap-2">
                   {availableTags.map((tag) => (
                     <Badge
@@ -134,7 +131,6 @@ export function SearchFilter({
                 </div>
               </div>
               
-              {/* Clear filters */}
               {activeFiltersCount > 0 && (
                 <div className="flex items-center justify-between pt-3 border-t">
                   <span className="text-xs sm:text-sm text-muted-foreground">
