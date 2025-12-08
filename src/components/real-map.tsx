@@ -4,10 +4,18 @@ import { Button } from './ui/button';
 import { Navigation } from './icons';
 import L from 'leaflet';
 
-const defaultIcon = L.icon({
-    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+const userIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
+const destinationIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
@@ -54,7 +62,7 @@ export function RealMap({ destinations, userLocation, onViewDetail, customCenter
                 zoom={13} 
                 scrollWheelZoom={false} 
                 className="h-full w-full z-0"
-                style={{ height: '100%', width: '100%' }} // Pastikan container peta memenuhi parent
+                style={{ height: '100%', width: '100%' }}
             >
                 <TileLayer
                     attribution='&copy; OpenStreetMap contributors'
@@ -62,7 +70,10 @@ export function RealMap({ destinations, userLocation, onViewDetail, customCenter
                 />
 
                 {isUserValid && (
-                    <Marker position={[userLocation!.lat, userLocation!.lng]} icon={defaultIcon}>
+                    <Marker 
+                        position={[userLocation!.lat, userLocation!.lng]} 
+                        icon={userIcon} 
+                    >
                         <Popup><div className="font-bold text-sm">📍 Lokasi Kamu</div></Popup>
                     </Marker>
                 )}
@@ -81,7 +92,11 @@ export function RealMap({ destinations, userLocation, onViewDetail, customCenter
                     if (typeof lat !== 'number' || typeof lng !== 'number') return null; 
 
                     return (
-                        <Marker key={dest.id} position={[lat, lng]} icon={defaultIcon}>
+                        <Marker 
+                            key={dest.id} 
+                            position={[lat, lng]} 
+                            icon={destinationIcon} 
+                        >
                             <Popup>
                                 <div className="min-w-[150px]">
                                     <div className="font-bold text-sm mb-1">{dest.name}</div>

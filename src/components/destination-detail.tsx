@@ -42,6 +42,26 @@ export function DestinationDetail({
 
   console.log("Apakah Koordinat Valid?", hasValidCoordinates);
 
+  const handleShare = async () => {
+    const shareData = {
+      title: `NusaGo - ${destination.name}`,
+      text: `Cek destinasi wisata ini: ${destination.name}. ${destination.description.substring(0, 100)}...`,
+      url: window.location.origin 
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } 
+      else {
+        await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+        alert("Link dan info wisata berhasil disalin ke clipboard! 📋");
+      }
+    } catch (err) {
+      console.error("Gagal membagikan:", err);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -52,7 +72,7 @@ export function DestinationDetail({
         </Button>
         <h1 className="flex-1 text-lg sm:text-xl lg:text-2xl line-clamp-2">{destination.name}</h1>
         <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-          <Button variant="outline" size="sm" className="h-8 sm:h-9">
+          <Button variant="outline" size="sm" className="h-8 sm:h-9" onClick={handleShare}>
             <Share2 className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
             <span className="hidden sm:inline">Bagikan</span>
           </Button>
@@ -106,9 +126,9 @@ export function DestinationDetail({
           </CardContent>
         </Card>
         
-        <Card>
+<Card>
           <CardContent className="p-3 sm:p-4 text-center">
-            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 mx-auto mb-1 sm:mb-2" />
+            <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-red-500 fill-current mx-auto mb-1 sm:mb-2" />
             <p className="text-lg sm:text-2xl">{destination.likes}</p>
             <p className="text-xs sm:text-sm text-muted-foreground">suka</p>
           </CardContent>
