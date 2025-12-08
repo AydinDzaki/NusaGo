@@ -23,18 +23,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
-
-// HAPUS AvatarImage, gunakan komponen dasar saja untuk keamanan
 import { Avatar, AvatarFallback } from "./components/ui/avatar";
 
 type View = "home" | "destination-detail" | "favorites" | "login" | "signup" | "forgot-password" | "settings";
 
-// 1. UPDATE INTERFACE
 interface UserData {
   id: string;
   name: string;
   email: string;
-  avatar_url: string | null; // Tambahkan ini
 }
 
 const availableIslands = [
@@ -61,47 +57,33 @@ export default function App() {
   
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   
+  // State Filter
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedIsland, setSelectedIsland] = useState("all"); 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // 2. AUTH LISTENER (DENGAN FETCH AVATAR)
+  // 1. AUTH LISTENER
   useEffect(() => {
-    const getProfile = async (session: any) => {
-      if (!session?.user) return null;
-      // Ambil data lengkap termasuk avatar dari tabel profiles
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-        
-      return {
-        id: session.user.id,
-        name: data?.name || session.user.user_metadata.name || "Pengguna",
-        email: session.user.email || "",
-        avatar_url: data?.avatar_url || null // Simpan URL avatar
-      };
-    };
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        const userData = await getProfile(session);
-        if (userData) {
-          setIsAuthenticated(true);
-          setCurrentUser(userData);
-        }
+        setIsAuthenticated(true);
+        setCurrentUser({
+          id: session.user.id,
+          name: session.user.user_metadata.name || "Pengguna",
+          email: session.user.email || "",
+        });
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        const userData = await getProfile(session);
-        if (userData) {
-            setIsAuthenticated(true);
-            setCurrentUser(userData);
-        }
+        setIsAuthenticated(true);
+        setCurrentUser({
+          id: session.user.id,
+          name: session.user.user_metadata.name || "Pengguna",
+          email: session.user.email || "",
+        });
         if (currentView === "login" || currentView === "signup") {
           setCurrentView("home");
         }
@@ -112,7 +94,7 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, [currentView]); // Kita kembalikan dependency ini karena kode lama Anda jalan dengan ini
+  }, [currentView]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -139,7 +121,7 @@ export default function App() {
     }
   };
 
-  // 3. FETCH DATA (LOGIKA LAMA YANG AMAN)
+  // 2. FETCH DESTINATIONS & REALTIME
   useEffect(() => {
     const fetchDestinations = async () => {
       setIsLoading(true);
@@ -199,6 +181,7 @@ export default function App() {
     };
   }, []);
 
+  // 3. FETCH LIKES
   useEffect(() => {
     if (!currentUser) return;
     const fetchLikes = async () => {
@@ -210,20 +193,26 @@ export default function App() {
     fetchLikes();
   }, [currentUser]);
 
-  // 4. FETCH REVIEWS (FIXED: Foreign Key Explisit)
+  // 4. FETCH REVIEWS (UPDATED: Include Profiles Name)
   const fetchAllReviews = async (destId: string) => {
       const { data, error } = await supabase
         .from('reviews')
+        // PERBAIKAN: Mengambil nama dari tabel profiles
         .select(`
-            id, rating, comment, created_at, helpful:helpful_count, 
-            profiles!reviews_user_id_fkey ( name )
-        `) // <--- PERBAIKAN PENTING DISINI
-        .eq('destination_id', destId)
-        .order('created_at', { ascending: false });
-        
-      if (!error && data) {
-        const formattedReviews: Review[] = data.map((item: any) => ({
-          id: item.id, 
+          id, 
+          rating, 
+          comment, 
+          created_at, 
+          helpful:helpful_count, 
+          profiles!reviews_user_id_fkey ( name )
+        `)
+      .eq('destination_id', destId)
+      .order('created_at', { ascending: false });
+      
+    if (!error && data) {
+      const formattedReviews: Review[] = data.map((item: any) => ({
+        id: item.id,
+          // PERBAIKAN: Mengambil nama profile, fallback ke "Pengguna"
           userName: item.profiles?.name || "Pengguna", 
           rating: item.rating, 
           comment: item.comment, 
@@ -231,19 +220,26 @@ export default function App() {
           helpful: item.helpful, 
           isHelpful: false
         }));
-        setReviews(prev => ({ ...prev, [destId]: formattedReviews }));
-        return formattedReviews;
+        
+          setReviews(prev => ({ ...prev, [destId]: formattedReviews }));
+          return formattedReviews;
       } else {
-          console.error("ERROR FETCH REVIEWS:", error);
+          // TAMBAHKAN DUA BARIS INI UNTUK MELIHAT PENYEBABNYA:
+          console.error("ERROR FETCH REVIEWS:", error); // <--- Cek Console Browser (F12)
+          console.log("Error details:", error?.message, error?.details); 
+          
           setReviews(prev => ({ ...prev, [destId]: [] }));
           return [];
       }
   };
 
   useEffect(() => {
-    if (selectedDestinationId) fetchAllReviews(selectedDestinationId);
+    if (selectedDestinationId) {
+      fetchAllReviews(selectedDestinationId);
+    }
   }, [selectedDestinationId]); 
 
+  // 5. GEOLOCATION
   useEffect(() => {
     const calculateNearby = (lat: number, lng: number) => {
       if (allDestinations.length === 0) return;
@@ -276,20 +272,27 @@ export default function App() {
     return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
   }, [isAuthenticated, allDestinations]); 
 
+  // FILTERING LOGIC (UPDATED: Case Insensitive for Islands)
   const filteredDestinations = allDestinations.filter((destination) => {
     const matchesSearch = destination.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          destination.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
     const matchesType = selectedType === "all" || destination.type === selectedType;
+    
+    // PERBAIKAN: Gunakan toLowerCase() agar pencocokan pulau tidak gagal karena huruf besar/kecil
     const matchesIsland = selectedIsland === "all" || 
                          (destination.island && destination.island.toLowerCase() === selectedIsland.toLowerCase());
+    
     const matchesTags = selectedTags.length === 0 || 
                        selectedTags.some(tag => destination.tags.includes(tag));
+                       
     return matchesSearch && matchesType && matchesIsland && matchesTags;
   });
 
   const isSearching = searchTerm !== "" || selectedType !== "all" || 
                      selectedIsland !== "all" || selectedTags.length > 0;
 
+  // HANDLERS
   const handleLike = async (destinationId: string) => {
     if (!currentUser) { alert("Silakan login untuk menyimpan favorit!"); setCurrentView("login"); return; }
     
@@ -299,7 +302,9 @@ export default function App() {
     setLikedDestinations(newLiked);
 
     setAllDestinations(prev => prev.map(d => {
-        if (d.id === destinationId) return { ...d, likes: isLiked ? Math.max(0, d.likes - 1) : d.likes + 1 }
+        if (d.id === destinationId) {
+            return { ...d, likes: isLiked ? Math.max(0, d.likes - 1) : d.likes + 1 }
+        }
         return d;
     }));
 
@@ -322,13 +327,24 @@ export default function App() {
   const handleAddReview = async (rating: number, comment: string) => {
     if (!currentUser) { alert("Silakan login untuk memberi ulasan!"); return; }
     
+    // Optimistic Update
     const tempId = `temp-${Date.now()}`;
     const newReview: Review = { 
-        id: tempId, userName: currentUser.name, rating, comment, date: new Date().toISOString(), helpful: 0, isHelpful: false 
+        id: tempId, 
+        userName: currentUser.name, 
+        rating: rating, 
+        comment: comment, 
+        date: new Date().toISOString(), 
+        helpful: 0, 
+        isHelpful: false 
     };
 
-    setReviews(prev => ({ ...prev, [selectedDestinationId]: [newReview, ...(prev[selectedDestinationId] || [])] }));
+    setReviews(prev => ({ 
+        ...prev, 
+        [selectedDestinationId]: [newReview, ...(prev[selectedDestinationId] || [])] 
+    }));
 
+    // Update rata-rata rating (Optimistic)
     setAllDestinations(prev => prev.map(d => {
         if (d.id === selectedDestinationId) {
             const oldTotal = d.rating * d.reviews;
@@ -341,11 +357,15 @@ export default function App() {
 
     try {
       const { error } = await supabase.from('reviews').insert({ 
-          user_id: currentUser.id, destination_id: selectedDestinationId, rating, comment 
+          user_id: currentUser.id, 
+          destination_id: selectedDestinationId, 
+          rating: rating, 
+          comment: comment 
       }).select().single();
       
       if (error) throw error;
       
+      // Ambil data terbaru dari server (ini akan menimpa temp review dengan data asli + nama)
       await fetchAllReviews(selectedDestinationId);
       await supabase.rpc('update_destination_rating', { dest_id: selectedDestinationId, new_rating: rating });
 
@@ -359,11 +379,12 @@ export default function App() {
     }
   };
 
-  const handleMarkHelpful = (id: string) => { };
+  const handleMarkHelpful = (id: string) => { /* Logic akan dihandle di component review-section */ };
   const handleBackToHome = () => { setCurrentView("home"); setSelectedDestinationId(""); };
   const handleFavoritesClick = () => { setCurrentView("favorites"); };
   const selectedDestination = allDestinations.find(d => d.id === selectedDestinationId);
 
+  // RENDER VIEWS
   if (currentView === "forgot-password") return <ForgotPassword onBack={() => setCurrentView("login")} onResetPassword={() => {}} />;
   if (currentView === "login" || currentView === "signup") return <Auth initialMode={currentView} onLogin={() => {}} onSignup={() => {}} onForgotPassword={() => setCurrentView("forgot-password")} onBack={() => setCurrentView("home")} />;
   
@@ -380,6 +401,7 @@ export default function App() {
             onMarkHelpful={handleMarkHelpful} 
             isLiked={likedDestinations.has(selectedDestinationId)} 
             userLocation={userLocation}
+            // TAMBAHAN: Passing ID user saat ini ke detail page
             currentUserId={currentUser?.id}
           />
         </div>
@@ -387,21 +409,7 @@ export default function App() {
     );
   }
 
-  // 5. SETTINGS: HANDLE AVATAR UPDATE
-  if (currentView === "settings") return isAuthenticated ? <SettingsPage 
-      onBack={handleBackToHome} 
-      user={currentUser!} 
-      onUpdateProfile={async (name, email) => {
-          setCurrentUser(prev => prev ? { ...prev, name, email } : null);
-          return true;
-      }} 
-      onDeleteAccount={handleDeleteAccount} 
-      onUpdatePreferences={async () => true}
-      // CALLBACK PENTING: Update state App.tsx saat foto diupload di settings
-      onAvatarUpdate={(newUrl) => {
-        setCurrentUser(prev => prev ? { ...prev, avatar_url: newUrl } : null);
-      }} 
-  /> : null;
+  if (currentView === "settings") return isAuthenticated ? <SettingsPage onBack={handleBackToHome} user={{...currentUser!, avatar_url: null}} onUpdateProfile={async () => true} onDeleteAccount={handleDeleteAccount} onUpdatePreferences={async () => true} /> : null;
   
   if (currentView === "favorites") {
     const favoriteDestinations = allDestinations.filter(d => likedDestinations.has(d.id));
@@ -409,10 +417,27 @@ export default function App() {
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card sticky top-0 z-50">
             <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex justify-between items-center">
-                <div className="flex items-center gap-2" onClick={handleBackToHome}><MapPin className="h-5 w-5 text-primary" /><h1 className="text-xl">NusaGo</h1><Badge variant="secondary" className="text-xs">Beta</Badge></div><Button variant="ghost" size="sm" onClick={handleBackToHome}><Home className="h-4 w-4 mr-2"/>Beranda</Button></div></header>
+                <div className="flex items-center gap-2" onClick={handleBackToHome}>
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <h1 className="text-xl">NusaGo</h1>
+                    <Badge variant="secondary" className="text-xs">Beta</Badge>
+                </div>
+                <Button variant="ghost" size="sm" onClick={handleBackToHome}>
+                    <Home className="h-4 w-4 mr-2"/>Beranda
+                </Button>
+            </div>
+        </header>
         <main className="container mx-auto px-3 sm:px-4 py-6">
           <h2 className="text-2xl flex items-center gap-2 mb-6"><Heart className="h-8 w-8 text-red-500 fill-current" /> Favorit Anda</h2>
-          {favoriteDestinations.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">{favoriteDestinations.map(dest => <DestinationCard key={dest.id} destination={dest} onLike={handleLike} onViewDetails={handleViewDetails} isLiked={true} />)}</div> : <div className="text-center py-12 text-muted-foreground">Belum ada tempat favorit.</div>}
+          {favoriteDestinations.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {favoriteDestinations.map(dest => (
+                    <DestinationCard key={dest.id} destination={dest} onLike={handleLike} onViewDetails={handleViewDetails} isLiked={true} />
+                ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">Belum ada tempat favorit.</div>
+          )}
         </main>
       </div>
     );
@@ -422,30 +447,25 @@ export default function App() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={handleBackToHome}><MapPin className="h-5 w-5 text-primary" /><h1 className="text-xl font-bold">NusaGo</h1><Badge variant="secondary" className="text-xs">Beta</Badge></div>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={handleBackToHome}>
+            <MapPin className="h-5 w-5 text-primary" />
+            <h1 className="text-xl font-bold">NusaGo</h1>
+            <Badge variant="secondary" className="text-xs">Beta</Badge>
+          </div>
           <div className="flex items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="flex items-center gap-2">
                     {isAuthenticated ? (
                         <>
-                            {/* 6. RENDER AVATAR (SAFE MODE) */}
-                            <Avatar className="h-7 w-7 overflow-hidden">
-                                {currentUser?.avatar_url ? (
-                                    <img 
-                                        src={currentUser.avatar_url} 
-                                        alt="Profile" 
-                                        className="h-full w-full object-cover" 
-                                    />
-                                ) : (
-                                    <AvatarFallback>{currentUser?.name?.charAt(0) || "U"}</AvatarFallback>
-                                )}
-                            </Avatar>
+                            <Avatar className="h-7 w-7"><AvatarFallback>{currentUser?.name?.charAt(0) || "U"}</AvatarFallback></Avatar>
                             <span className="hidden sm:inline text-sm">{currentUser?.name}</span>
                             <ChevronDown className="h-4 w-4" />
                         </>
                     ) : (
-                        <><User className="h-5 w-5" /><span className="hidden sm:inline">Akun</span><ChevronDown className="h-4 w-4" /></>
+                        <>
+                            <User className="h-5 w-5" /><span className="hidden sm:inline">Akun</span><ChevronDown className="h-4 w-4" />
+                        </>
                     )}
                 </Button>
               </DropdownMenuTrigger>
@@ -473,19 +493,45 @@ export default function App() {
 
       <main className="container mx-auto px-3 sm:px-4 py-6 space-y-6">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 space-y-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div><p className="text-muted-foreground">Memuat data wisata...</p></div>
+          <div className="flex flex-col items-center justify-center h-64 space-y-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">Memuat data wisata...</p>
+          </div>
         ) : (
           <>
             {!isSearching && isAuthenticated && (
               <div className="space-y-4">
-                <div className="flex justify-between items-center"><h2 className="text-xl font-semibold flex gap-2"><Target className="text-primary" /> Rekomendasi Sekitarmu</h2><Badge variant="outline"><Navigation className="h-3 w-3 mr-1" /> Terdekat</Badge></div>
-                {nearbyDestinations.length > 0 ? <div className="overflow-x-auto pb-4 -mx-3 px-3 scrollbar-hide"><div className="flex gap-4">{nearbyDestinations.map(dest => <div key={dest.id} className="w-[280px] flex-shrink-0"><DestinationCard destination={dest} onLike={handleLike} onViewDetails={handleViewDetails} isLiked={likedDestinations.has(dest.id)} distance={dest.distance} featured={true} /></div>)}</div></div> : <div className="text-center py-4 bg-muted/20 rounded-lg"><p className="text-sm text-muted-foreground">Belum ada destinasi di database yang dekat dengan lokasimu.</p></div>}
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-semibold flex gap-2"><Target className="text-primary" /> Rekomendasi Sekitarmu</h2>
+                    <Badge variant="outline"><Navigation className="h-3 w-3 mr-1" /> Terdekat</Badge>
+                </div>
+                {nearbyDestinations.length > 0 ? (
+                    <div className="overflow-x-auto pb-4 -mx-3 px-3 scrollbar-hide">
+                        <div className="flex gap-4">
+                            {nearbyDestinations.map(dest => (
+                                <div key={dest.id} className="w-[280px] flex-shrink-0">
+                                    <DestinationCard destination={dest} onLike={handleLike} onViewDetails={handleViewDetails} isLiked={likedDestinations.has(dest.id)} distance={dest.distance} featured={true} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-4 bg-muted/20 rounded-lg">
+                        <p className="text-sm text-muted-foreground">Belum ada destinasi di database yang dekat dengan lokasimu.</p>
+                    </div>
+                )}
               </div>
             )}
-
+            
             {!isAuthenticated && !isSearching && (
               <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border border-primary/20 rounded-lg p-8 text-center space-y-4">
-                <div className="flex justify-center"><div className="bg-primary/10 p-3 rounded-full"><Target className="h-8 w-8 text-primary" /></div></div><h3 className="text-xl font-semibold">Lihat Peta Wisata di Sekitarmu!</h3><p className="text-sm text-muted-foreground max-w-md mx-auto">Login sekarang untuk mengaktifkan GPS.</p><div className="flex justify-center gap-2"><Button onClick={() => setCurrentView("login")}>Sign In</Button><Button variant="outline" onClick={() => setCurrentView("signup")}>Sign Up</Button></div>
+                <div className="flex justify-center"><div className="bg-primary/10 p-3 rounded-full"><Target className="h-8 w-8 text-primary" /></div></div>
+                <h3 className="text-xl font-semibold">Lihat Peta Wisata di Sekitarmu!</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">Login sekarang untuk mengaktifkan GPS dan melihat rekomendasi personal.</p>
+                <div className="flex justify-center gap-2">
+                    <Button onClick={() => setCurrentView("login")}>Sign In</Button>
+                    <Button variant="outline" onClick={() => setCurrentView("signup")}>Sign Up</Button>
+                </div>
               </div>
             )}
 
@@ -502,13 +548,34 @@ export default function App() {
             />
             
             <div>
-              <div className="flex items-center justify-between mb-4"><h3 className="text-xl font-semibold">{isSearching ? "Hasil Pencarian" : "Jelajahi Semua"}</h3><span className="text-sm text-muted-foreground">{filteredDestinations.length} destinasi</span></div>
-              {filteredDestinations.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">{filteredDestinations.map(dest => <div key={dest.id} className="h-full"><DestinationCard destination={dest} onLike={handleLike} onViewDetails={handleViewDetails} isLiked={likedDestinations.has(dest.id)} featured={false} /></div>)}</div> : <div className="text-center py-12"><Search className="h-12 w-12 text-muted-foreground mx-auto mb-2" /><p className="text-muted-foreground">Tidak ada destinasi yang cocok.</p></div>}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold">{isSearching ? "Hasil Pencarian" : "Jelajahi Semua"}</h3>
+                <span className="text-sm text-muted-foreground">{filteredDestinations.length} destinasi</span>
+              </div>
+              
+              {filteredDestinations.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {filteredDestinations.map(dest => (
+                        <div key={dest.id} className="h-full">
+                            <DestinationCard destination={dest} onLike={handleLike} onViewDetails={handleViewDetails} isLiked={likedDestinations.has(dest.id)} featured={false} />
+                        </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                    <Search className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">Tidak ada destinasi yang cocok.</p>
+                </div>
+              )}
             </div>
           </>
         )}
       </main>
-      <footer className="border-t bg-muted/50 mt-8 py-8"><div className="container mx-auto px-4 text-center text-sm text-muted-foreground"><p>© 2025 NusaGo. Dibuat dengan ❤️ untuk wisatawan Indonesia.</p></div></footer>
+      <footer className="border-t bg-muted/50 mt-8 py-8">
+        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+            <p>© 2025 NusaGo. Dibuat dengan ❤️ untuk wisatawan Indonesia.</p>
+        </div>
+      </footer>
     </div>
   );
 }
