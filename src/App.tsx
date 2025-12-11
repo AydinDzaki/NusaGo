@@ -76,6 +76,17 @@ export default function App() {
   const [selectedIsland, setSelectedIsland] = useState("all"); 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
+  // --- LOGIKA TAG TOGGLE (DITAMBAHKAN) ---
+  const handleTagToggle = (tag: string) => {
+    setSelectedTags((prevTags) => {
+      if (prevTags.includes(tag)) {
+        return prevTags.filter((t) => t !== tag);
+      } else {
+        return [...prevTags, tag];
+      }
+    });
+  };
+
   // 1. AUTH LISTENER
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -210,6 +221,7 @@ export default function App() {
   const fetchAllReviews = async (destId: string) => {
       const { data, error } = await supabase
         .from('reviews')
+        // PERBAIKAN: Mengambil nama dari tabel profiles
         .select(`
           id, 
           rating, 
@@ -224,6 +236,7 @@ export default function App() {
     if (!error && data) {
       const formattedReviews: Review[] = data.map((item: any) => ({
         id: item.id,
+          // PERBAIKAN: Mengambil nama profile, fallback ke "Pengguna"
           userName: item.profiles?.name || "Pengguna", 
           rating: item.rating, 
           comment: item.comment, 
@@ -235,7 +248,10 @@ export default function App() {
           setReviews(prev => ({ ...prev, [destId]: formattedReviews }));
           return formattedReviews;
       } else {
-          console.error("ERROR FETCH REVIEWS:", error);
+          // Cek Console Browser (F12) untuk melihat error detail
+          console.error("ERROR FETCH REVIEWS:", error); 
+          console.log("Error details:", error?.message, error?.details); 
+          
           setReviews(prev => ({ ...prev, [destId]: [] }));
           return [];
       }
@@ -287,6 +303,7 @@ export default function App() {
     
     const matchesType = selectedType === "all" || destination.type === selectedType;
     
+    // PERBAIKAN: Gunakan toLowerCase() agar pencocokan pulau tidak gagal karena huruf besar/kecil
     const matchesIsland = selectedIsland === "all" || 
                          (destination.island && destination.island.toLowerCase() === selectedIsland.toLowerCase());
     
@@ -334,6 +351,7 @@ export default function App() {
   const handleAddReview = async (rating: number, comment: string) => {
     if (!currentUser) { alert("Silakan login untuk memberi ulasan!"); return; }
     
+    // Optimistic Update
     const tempId = `temp-${Date.now()}`;
     const newReview: Review = { 
         id: tempId, 
@@ -350,6 +368,7 @@ export default function App() {
         [selectedDestinationId]: [newReview, ...(prev[selectedDestinationId] || [])] 
     }));
 
+    // Update rata-rata rating (Optimistic)
     setAllDestinations(prev => prev.map(d => {
         if (d.id === selectedDestinationId) {
             const oldTotal = d.rating * d.reviews;
@@ -370,6 +389,7 @@ export default function App() {
       
       if (error) throw error;
       
+      // Ambil data terbaru dari server (ini akan menimpa temp review dengan data asli + nama)
       await fetchAllReviews(selectedDestinationId);
       await supabase.rpc('update_destination_rating', { dest_id: selectedDestinationId, new_rating: rating });
 
@@ -383,17 +403,9 @@ export default function App() {
     }
   };
 
-  const handleMarkHelpful = (id: string) => { /* Logic helpful akan dihandle di component */ };
+  const handleMarkHelpful = (id: string) => { /* Logic akan dihandle di component review-section */ };
   const handleBackToHome = () => { setCurrentView("home"); setSelectedDestinationId(""); };
   const handleFavoritesClick = () => { setCurrentView("favorites"); };
-  
-  // --- FUNGSI INTERAKSI TAG (FIXED) ---
-  const handleTagToggle = (tag: string) => { 
-    setSelectedTags(prev => 
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    ); 
-  };
-  
   const selectedDestination = allDestinations.find(d => d.id === selectedDestinationId);
 
   // RENDER VIEWS

@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 // Import Supabase Client
 import { supabase } from "../lib/supabase"; 
 
-import { User, Mail, MapPin, Bell, Globe, Shield, Info, Trash2, ChevronRight, Camera } from "./icons";
+import { User, Bell, Shield, Info, Trash2, ChevronRight, Camera } from "./icons";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -24,12 +24,12 @@ import {
     AlertDialogTrigger,
 } from "./ui/alert-dialog";
 
-// MODIFIKASI: Interface UserData dan Props diperluas untuk data preferensi dan avatar
+// Interface UserData diperluas untuk avatar_url
 interface UserData {
     id: string;
     name: string;
     email: string;
-    avatar_url: string | null; // DITAMBAHKAN
+    avatar_url: string | null; 
     preferences?: {
         notifications: {
             email_notifications: boolean;
@@ -55,14 +55,13 @@ interface SettingsProps {
     onUpdateProfile: (name: string, email: string) => Promise<boolean>; 
     onDeleteAccount: () => void;
     onUpdatePreferences: (updates: any) => Promise<boolean>; 
+    // PROPS BARU: Callback untuk update avatar di parent
+    onAvatarUpdate: (url: string) => void;
 }
 
-// FUNGSI UTILITY: Mengubah snake_case ke camelCase untuk state lokal
-const toCamelCase = (s: string) => s.replace(/([-_][a-z])/ig, ($1) => $1.toUpperCase().replace('-', '').replace('_', ''));
-
-export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpdatePreferences }: SettingsProps) {
+export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpdatePreferences, onAvatarUpdate }: SettingsProps) {
     // Refs
-    const fileInputRef = useRef<HTMLInputElement>(null); // Ref untuk input file tersembunyi
+    const fileInputRef = useRef<HTMLInputElement>(null); 
 
     // State Profil Inti
     const [isEditing, setIsEditing] = useState(false);
@@ -70,10 +69,10 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
         name: user.name,
         email: user.email,
     });
-    // DITAMBAHKAN: State Foto Profil (menggunakan URL dari props)
+    // State Foto Profil (menggunakan URL dari props)
     const [avatarUrl, setAvatarUrl] = useState(user.avatar_url || null); 
 
-    // State Preferensi (Ambil dari props atau gunakan default)
+    // State Preferensi
     const initialNotifications = user.preferences?.notifications || {
         email_notifications: true,
         push_notifications: true,
@@ -88,13 +87,12 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
         show_reviews: true,
     };
 
-    // State ini sekarang menggunakan snake_case agar mudah di-map ke Supabase
     const [notifications, setNotifications] = useState(initialNotifications);
     const [privacy, setPrivacy] = useState(initialPrivacy);
     
     // State UI & Loading
-    const [saveLoading, setSaveLoading] = useState(false); // Untuk tombol Simpan
-    const [prefSaving, setPrefSaving] = useState(false); // Untuk switch
+    const [saveLoading, setSaveLoading] = useState(false);
+    const [prefSaving, setPrefSaving] = useState(false); 
     const [saveSuccess, setSaveSuccess] = useState(false);
 
 
@@ -152,7 +150,7 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
 
         // 1. Upload file ke Supabase Storage (Bucket: images)
         const { error: uploadError } = await supabase.storage
-            .from('images') // NAMA BUCKET ANDA (images)
+            .from('images') 
             .upload(filePath, file, {
                 cacheControl: '3600',
                 upsert: true 
@@ -183,8 +181,10 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
             return;
         }
 
-        // 4. Perbarui state lokal
+        // 4. Perbarui state lokal & LAPOR KE PARENT (App.tsx)
         setAvatarUrl(newAvatarUrl); 
+        onAvatarUpdate(newAvatarUrl); // <--- KUNCI PERBAIKAN: Lapor ke App.tsx
+        
         setSaveLoading(false);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -200,10 +200,8 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
     ) => {
         setPrefSaving(true);
         
-        // Update state lokal secara spekulatif (akan dibalik jika gagal)
         const currentUpdates = type === 'notifications' ? { ...notifications, [key]: checked } : { ...privacy, [key]: checked };
         
-        // Persiapan data untuk upsert (mengirim semua kolom boolean)
         const allUpdates = { 
             ...notifications, 
             ...privacy, 
@@ -215,7 +213,6 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
         setPrefSaving(false);
 
         if (success) {
-            // Update state lokal resmi
             if (type === 'notifications') {
                 setNotifications(currentUpdates as typeof initialNotifications);
             } else {
@@ -285,7 +282,6 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
                             {/* Avatar Section */}
                             <div className="flex items-center gap-4">
                                 <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
-                                    {/* Menampilkan foto jika avatarUrl ada */}
                                     {avatarUrl ? (
                                         <AvatarImage src={avatarUrl} alt="Avatar Pengguna" />
                                     ) : (
@@ -295,7 +291,6 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
                                     )}
                                 </Avatar>
                                 <div className="flex-1">
-                                    {/* Input file tersembunyi */}
                                     <input
                                         type="file"
                                         ref={fileInputRef}
@@ -306,7 +301,7 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
                                     <Button 
                                         variant="outline" 
                                         size="sm" 
-                                        onClick={() => fileInputRef.current?.click()} // Memicu klik
+                                        onClick={() => fileInputRef.current?.click()} 
                                         disabled={saveLoading || prefSaving}
                                     >
                                         <Camera className="h-4 w-4 mr-2" />
