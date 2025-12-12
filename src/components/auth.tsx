@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { Eye, EyeOff, MapPin, User, Mail, Lock, UserPlus, LogIn } from "./icons";
+import { Eye, EyeOff, MapPin, User, Mail, Lock, UserPlus, LogIn, CheckCircle } from "./icons"; // Pastikan import CheckCircle jika ada, atau gunakan icon lain
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -24,6 +24,7 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
   
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState(false); // State baru untuk sukses signup
 
   const [formData, setFormData] = useState({
     name: "",
@@ -53,10 +54,15 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
           throw new Error("Kata sandi tidak cocok");
         }
 
+        // Dapatkan URL saat ini (misal: http://localhost:5173)
+        const redirectUrl = window.location.origin;
+
         const { error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
+            // PERUBAHAN UTAMA DI SINI:
+            emailRedirectTo: redirectUrl, 
             data: {
               name: formData.name, 
             },
@@ -65,7 +71,8 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
 
         if (error) throw error;
         
-        alert("Pendaftaran berhasil! Silakan cek email jika perlu verifikasi, atau login.");
+        // Ubah tampilan ke mode sukses alih-alih alert
+        setSuccessMsg(true);
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Terjadi kesalahan pada sistem.");
@@ -86,8 +93,39 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
     : formData.name && formData.email && formData.password && formData.confirmPassword && 
       formData.password === formData.confirmPassword;
 
+  // --- TAMPILAN SUKSES KONFIRMASI EMAIL ---
+  if (successMsg && !isLoginMode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg border-0 text-center p-6">
+           <div className="flex justify-center mb-4">
+              <div className="bg-green-100 p-3 rounded-full">
+                <Mail className="h-8 w-8 text-green-600" />
+              </div>
+           </div>
+           <CardTitle className="text-xl mb-2">Cek Email Anda</CardTitle>
+           <CardDescription className="mb-6">
+             Kami telah mengirimkan link konfirmasi ke <strong>{formData.email}</strong>.<br/>
+             Silakan klik link tersebut untuk mengaktifkan akun Anda dan kembali ke halaman ini.
+           </CardDescription>
+           <Button 
+             variant="outline" 
+             className="w-full"
+             onClick={() => {
+               setSuccessMsg(false);
+               setIsLoginMode(true);
+             }}
+           >
+             Kembali ke Halaman Login
+           </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center p-4">
+      {/* ... (Sisa kode render form sama seperti sebelumnya) ... */}
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -101,7 +139,8 @@ export function Auth({ onLogin, onSignup, onForgotPassword, onBack, initialMode 
               Bergabunglah dengan kami dan mulai temukan tempat-tempat menakjubkan!
             </p>
           )}
-          {onBack && (
+           {/* Tombol Back */}
+           {onBack && (
             <Button
               type="button"
               variant="link"
