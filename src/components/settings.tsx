@@ -29,7 +29,8 @@ interface UserData {
     id: string;
     name: string;
     email: string;
-    avatar_url: string | null; 
+    avatar_url?: string | null;  // ← UBAH: buat optional
+    role?: string;
     preferences?: {
         notifications: {
             email_notifications: boolean;
@@ -46,8 +47,9 @@ interface UserData {
     };
 }
 
-type NotificationKeys = keyof UserData['preferences']['notifications'];
-type PrivacyKeys = keyof UserData['preferences']['privacy'];
+// Type-safe keys dengan NonNullable
+type NotificationKeys = keyof NonNullable<UserData['preferences']>['notifications'];
+type PrivacyKeys = keyof NonNullable<UserData['preferences']>['privacy'];
 
 interface SettingsProps {
     user: UserData;
@@ -72,19 +74,19 @@ export function Settings({ user, onBack, onUpdateProfile, onDeleteAccount, onUpd
     // State Foto Profil (menggunakan URL dari props)
     const [avatarUrl, setAvatarUrl] = useState(user.avatar_url || null); 
 
-    // State Preferensi
-    const initialNotifications = user.preferences?.notifications || {
-        email_notifications: true,
-        push_notifications: true,
-        new_destinations: true,
-        event_reminders: true,
-        weekly_digest: false,
+    // State Preferensi dengan safe access
+    const initialNotifications = {
+        email_notifications: user.preferences?.notifications?.email_notifications ?? true,
+        push_notifications: user.preferences?.notifications?.push_notifications ?? true,
+        new_destinations: user.preferences?.notifications?.new_destinations ?? true,
+        event_reminders: user.preferences?.notifications?.event_reminders ?? true,
+        weekly_digest: user.preferences?.notifications?.weekly_digest ?? false,
     };
 
-    const initialPrivacy = user.preferences?.privacy || {
-        show_profile: true,
-        show_likes: true,
-        show_reviews: true,
+    const initialPrivacy = {
+        show_profile: user.preferences?.privacy?.show_profile ?? true,
+        show_likes: user.preferences?.privacy?.show_likes ?? true,
+        show_reviews: user.preferences?.privacy?.show_reviews ?? true,
     };
 
     const [notifications, setNotifications] = useState(initialNotifications);

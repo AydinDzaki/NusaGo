@@ -5,7 +5,7 @@ import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
 import { ReviewSection, Review } from "./review-section";
 import { Destination } from "./destination-card";
-import { RealMap } from "./real-map"; 
+import { RealMap } from "./real-map";
 
 interface DestinationDetailProps {
   destination: Destination;
@@ -16,6 +16,7 @@ interface DestinationDetailProps {
   onMarkHelpful: (reviewId: string) => void;
   isLiked: boolean;
   userLocation?: { lat: number; lng: number } | null;
+  currentUserId?: string;  // ← DITAMBAHKAN
 }
 
 export function DestinationDetail({
@@ -26,42 +27,9 @@ export function DestinationDetail({
   onAddReview,
   onMarkHelpful,
   isLiked,
-  userLocation
+  userLocation,
+  currentUserId
 }: DestinationDetailProps) {
-  
-  // === DEBUGGING Stuff ===
-  console.log("=== DEBUG DESTINATION DETAIL ===");
-  console.log("Nama Destinasi:", destination.name);
-  console.log("Data Koordinat:", destination.coordinates);
-  console.log("Data Lokasi User:", userLocation);
-  // === DEBUGGING stuff ===
-
-  const hasValidCoordinates = destination.coordinates && 
-                              typeof destination.coordinates.lat === 'number' && 
-                              typeof destination.coordinates.lng === 'number';
-
-  console.log("Apakah Koordinat Valid?", hasValidCoordinates);
-
-  const handleShare = async () => {
-    const shareData = {
-      title: `NusaGo - ${destination.name}`,
-      text: `Cek destinasi wisata ini: ${destination.name}. ${destination.description.substring(0, 100)}...`,
-      url: window.location.origin 
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } 
-      else {
-        await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
-        alert("Link dan info wisata berhasil disalin ke clipboard! 📋");
-      }
-    } catch (err) {
-      console.error("Gagal membagikan:", err);
-    }
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -72,7 +40,7 @@ export function DestinationDetail({
         </Button>
         <h1 className="flex-1 text-lg sm:text-xl lg:text-2xl line-clamp-2">{destination.name}</h1>
         <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-          <Button variant="outline" size="sm" className="h-8 sm:h-9" onClick={handleShare}>
+          <Button variant="outline" size="sm" className="h-8 sm:h-9">
             <Share2 className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
             <span className="hidden sm:inline">Bagikan</span>
           </Button>
@@ -88,6 +56,7 @@ export function DestinationDetail({
         </div>
       </div>
 
+      {/* Hero Image */}
       <Card className="overflow-hidden">
         <div className="relative">
           <img
@@ -117,7 +86,7 @@ export function DestinationDetail({
       </Card>
 
       {/* Quick Info */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+      <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-4">
         <Card>
           <CardContent className="p-3 sm:p-4 text-center">
             <Star className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400 mx-auto mb-1 sm:mb-2" />
@@ -126,9 +95,9 @@ export function DestinationDetail({
           </CardContent>
         </Card>
         
-<Card>
+        <Card>
           <CardContent className="p-3 sm:p-4 text-center">
-            <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-red-500 fill-current mx-auto mb-1 sm:mb-2" />
+            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 mx-auto mb-1 sm:mb-2" />
             <p className="text-lg sm:text-2xl">{destination.likes}</p>
             <p className="text-xs sm:text-sm text-muted-foreground">suka</p>
           </CardContent>
@@ -139,14 +108,14 @@ export function DestinationDetail({
             {destination.type === "event" ? (
               <>
                 <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mx-auto mb-1 sm:mb-2" />
-                <p className="text-xs sm:text-sm line-clamp-1">{destination.date ? new Date(destination.date).toLocaleDateString('id-ID') : "TBA"}</p>
+                <p className="text-xs sm:text-sm line-clamp-1">{destination.date ? new Date(destination.date).toLocaleDateString('id-ID') : "Akan diumumkan"}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">tanggal acara</p>
               </>
             ) : (
               <>
                 <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mx-auto mb-1 sm:mb-2" />
-                <p className="text-xs sm:text-sm">Buka</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">setiap hari</p>
+                <p className="text-xs sm:text-sm">Sepanjang Tahun</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">tersedia</p>
               </>
             )}
           </CardContent>
@@ -174,6 +143,28 @@ export function DestinationDetail({
               ))}
             </div>
           </div>
+          
+          <Separator />
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+            <div>
+              <h4 className="mb-2 text-sm sm:text-base">Detail Lokasi</h4>
+              <div className="space-y-1 text-muted-foreground">
+                <p>📍 {destination.location}</p>
+                <p className="break-all">🌐 {destination.coordinates.lat}, {destination.coordinates.lng}</p>
+              </div>
+            </div>
+            
+            {destination.type === "event" && destination.date && (
+              <div>
+                <h4 className="mb-2 text-sm sm:text-base">Informasi Acara</h4>
+                <div className="space-y-1 text-muted-foreground">
+                  <p>📅 {new Date(destination.date).toLocaleDateString('id-ID')}</p>
+                  <p>⏰ {new Date(destination.date).toLocaleTimeString('id-ID')}</p>
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -190,7 +181,9 @@ export function DestinationDetail({
               : "Menampilkan lokasi destinasi di peta."}
           </p>
           
-          {hasValidCoordinates ? (
+          {destination.coordinates && 
+           typeof destination.coordinates.lat === 'number' && 
+           typeof destination.coordinates.lng === 'number' ? (
             <RealMap 
               destinations={[destination]} 
               userLocation={userLocation || null} 
@@ -206,7 +199,7 @@ export function DestinationDetail({
         </CardContent>
       </Card>
 
-      {/* Reviews */}
+      {/* Reviews Section */}
       <ReviewSection
         reviews={reviews}
         onAddReview={onAddReview}
